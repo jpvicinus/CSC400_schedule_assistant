@@ -33,9 +33,8 @@ async def hello_world():
 
 #show list of all students
 @app.get("/students")
-async def get_students():  # return a list of all students 
+async def get_students():   
     cursor = connection.cursor()
-    # go to database and get users 
     get_students = "select * from studentlist;"
     cursor.execute(get_students)
     result = cursor.fetchall()  
@@ -73,23 +72,17 @@ async def delete_student_by_id(student_id: int) -> str:
     cursor.close()
     return "done"
 
-# # create new student
-class newstudent(BaseModel):
+# class for new student
+class Newstudent(BaseModel):
     first_name: str
     last_name: str
     student_id: int
     student_grade: int
 
 
-class updatestudent(BaseModel):
-    first_name: str
-    last_name: str
-    student_id: int
-    student_grade: int
-
-#POST take body - get data through body not url parameters
-@app.post("/students/newstudent")    
-async def new_student(student:newstudent):
+ #create new student   
+@app.post("/students")    
+async def new_student(student:Newstudent):
     cursor = connection.cursor()
     first_name = student.first_name
     last_name = student.last_name
@@ -100,17 +93,15 @@ async def new_student(student:newstudent):
     cursor.close()
     return student
 
-
+#update student by id
 @app.put("/students/{student_id}")
-async def update_student(student_id: int, update: updatestudent):
+async def update_student(student_id: int, update: Newstudent):
     cursor = connection.cursor()
     first_name = update.first_name
     last_name = update.last_name
     student_id = update.student_id
     student_grade = update.student_grade
     add_new = f"update studentlist set first_name = '{first_name}',last_name = '{last_name}',student_id = {student_id},student_grade = {student_grade} where student_id={student_id}"
-    # update_student_encoded = jsonable_encoder(student)
-    # student[student_id] = update_student_encoded
     cursor.execute(add_new)
     cursor.close()
     return update
@@ -158,16 +149,6 @@ async def get_class_by_grade(class_grade):
     cursor.close()
     return result
 
-#get class list by name
-@app.get('/class/name/{class_name}')
-async def get_class_by_name(class_name):
-    cursor = connection.cursor()
-    class_by_name = f"select * from classinfo where class_name = '{class_name}'"
-    cursor.execute(class_by_name)
-    result = cursor.fetchall()
-    cursor.close()
-    return result
-
 #delete class by id
 @app.delete("/class/delete/id/{class_id}")
 async def delete_class_by_id(class_id):
@@ -180,15 +161,52 @@ async def delete_class_by_id(class_id):
 
  
 
+    
+
+#class for new and update clas
+class Group(BaseModel):
+    class_name: str
+    class_grade: int
+    class_subject: str
+    class_size: int
+    class_id: int
+
+ #create new class   
+@app.post("/class")    
+async def new_class(new_group:Group):
+    cursor = connection.cursor()
+    class_name = new_group.class_name
+    class_grade = new_group.class_grade
+    class_subject = new_group.class_subject
+    class_size = new_group.class_size
+    class_id = new_group.class_id
+    new_class = f"insert into classinfo(class_name,class_grade,class_subject,class_size,class_id) values('{class_name}' , '{class_grade}' , '{class_subject}' , '{class_size}' , '{class_id}')"
+    cursor.execute(new_class)
+    cursor.close()
+    return new_group
+
+#update class by id
+@app.put("/class/{class_id}")
+async def update_class(class_id: int, updatec: Group):
+    cursor = connection.cursor()
+    class_name = updatec.class_name
+    class_grade = updatec.class_grade
+    class_subject = updatec.class_subject
+    class_size = updatec.class_size
+    class_id = updatec.class_id
+    updateclass = f"update classinfo set class_name = {class_name} , class_grade = {class_grade} , class_subject = {class_subject} , class_size = {class_size},class_id = {class_id} where class_id={class_id}"
+    cursor.execute(updateclass)
+    cursor.close()
+    return updatec
 
 
 
-# @app.post("/students/newstudent")
-# async def new_student(first_name:str,last_name:str,student_id:float,student_grade:float,newStudent:newstudent,q,):
-#     cursor = connection.cursor()
-#    # add_new = f"insert into studentlist(first_name,last_name,student_id,student_grade) values('{first_name}''{last_name}''{student_id}''{student_grade}')"
-#     cursor.execute()
-#     cursor.close()
+
+
+
+
+
+
 
 #TODO
 # update user by id 
