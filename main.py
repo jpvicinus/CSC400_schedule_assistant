@@ -194,7 +194,7 @@ async def update_class(class_id: int, updatec: Group):
     class_subject = updatec.class_subject
     class_size = updatec.class_size
     class_id = updatec.class_id
-    updateclass = f"update classinfo set class_name = {class_name} , class_grade = {class_grade} , class_subject = {class_subject} , class_size = {class_size},class_id = {class_id} where class_id={class_id}"
+    updateclass = f"update classinfo set class_name ='{class_name}' , class_grade = {class_grade} , class_subject = '{class_subject}' , class_size = {class_size},class_id = {class_id} where class_id={class_id}"
     cursor.execute(updateclass)
     cursor.close()
     return updatec
@@ -210,8 +210,7 @@ async def update_class(class_id: int, updatec: Group):
 
 #TODO
 # update user by id 
-#add a new class
-#update class
+
 
 
 
