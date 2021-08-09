@@ -8,7 +8,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException
 from uuid import UUID
-
+import random
+import math
 
 
 AVAILABLE_SUBJECTS_9 = [
@@ -240,7 +241,7 @@ async def get_student_count(student_grade:int):
 async def get_class():  # return a list of all classes
     cursor = connection.cursor()
     # go to database and get classes 
-    get_classes = "select * from classinfo;"
+    get_classes = "select * from classinfo"
     cursor.execute(get_classes)
     result = cursor.fetchall()  
     # put classes into models using pydantic 
@@ -294,7 +295,7 @@ class Group(BaseModel):
     class_grade: int
     class_subject: str
     class_size: int
-    class_id: int
+    #class_id: int
     max_students: int
 
 
@@ -317,43 +318,89 @@ async def update_class(class_id: int, updatec: Group):
 #make class and add students
 @app.post("/class/new")    
 async def new_class(new_group:Group):
-    #define inputs
+
     cursor = connection.cursor()
     class_name = new_group.class_name
     class_grade = new_group.class_grade
     class_subject = new_group.class_subject
     class_size = new_group.class_size
     max_students = new_group.max_students
-    #define how to make new class
-  #######  new_class = f"insert into classinfo(class_name,class_grade,class_subject,class_size,class_id) values('{class_name}' , '{class_grade}' , '{class_subject}' , '{class_size}' ,{}"
-   #validation of grade and subject
     validate_grade(class_grade)
     validate_subject(class_grade,class_subject)
-    #read inputs for new class
-    #count number of students in grade relating to class
-    student_count = f"select count (*) from studentlist where student_grade = {class_grade}"
-    cursor.execute(student_count)
-    #determine how many of this class you need to create
-    num_classes = ()
-    if class_size<max_students:
-        num_classes = max_students / class_size
-    i = 0
-    while i < num_classes:
-        (cursor.execute (new_class))
-        i = i + 1
+
+    print(f"class grade is: {class_grade}")
+    print(f"class subject is: {class_subject}")
+
+    cursor.execute(f"select count (*) from studentlist where student_grade = {class_grade}")
+    student_count = cursor.fetchone()
+    print(f"number of students in grade {class_grade} is: {student_count}")
+    print(f"max students allowed in {class_name} is {max_students}")
+    print(f"number of students in {class_name} is {class_size}")
+    
+
+    if class_size < max_students:
+        num_classes = math.ceil(max_students / class_size)
+        print(f"Number of classes needed for {class_name} is: {num_classes}")
+    else:
+        raise HTTPException(status_code=400, detail=f"Class size {class_size} must be greater than max students {max_students}")
+
+    all_students_query = (f"select * from studentlist where student_grade = {class_grade}")
+    cursor.execute(all_students_query)
+    all_students = cursor.fetchall()
+    
+    desired_class_size = math.ceil(max_students / num_classes)
+    total_created_memberships = 0
+   
+    for i in range(num_classes):
+        print(f"looping through class {i} of total {num_classes}")
+        
+        class_id = random.randint(1, 999999)
+        new_class = f"insert into classinfo(class_name,class_grade,class_subject,class_size,class_id) values('{class_name}','{class_grade}','{class_subject}','{class_size}','{class_id}')"
+        cursor.execute(new_class)
+        print(f'this is my class id: {class_id}')
+        
+        for j in range(desired_class_size):
+            print(f"looping through student {j} of {desired_class_size}")
+            
+            if total_created_memberships >= max_students:
+                print(f'finished creating {total_created_memberships} students')
+                break 
+            
+            random_student = random.choice(all_students)
+            print(f'here is my randomly selected student {random_student}')
+            all_students.remove(random_student)
+            print(f'updated list size after removing randomly selected student: {len(all_students)}')
+            
+            membership_id = random.randint(0, 999999)
+            student_id = random_student[2]
+            new_membership_query = f"insert into membership(id, student_id, class_id) values({membership_id}, {student_id}, {class_id})"
+            cursor.execute(new_membership_query)
+            total_created_memberships += 1
 
     #commit to create
     connection.commit()
    
-    result = cursor.fetchall()
     cursor.close()
-    #return new class/es,num of students in grade, num of classes needed/made
-    return new_group,"num of students in grade:{result}","number of classes needed:{num_classes}"
+    return new_group
+  
 
 
 
-
-
+#display name of students in class given class name
+@app.get("/memberships/{class_name}")
+async def get_mem(class_name: str):   
+    cursor = connection.cursor()
+    print(f'this is my classname : {class_name}')
+    roster = ("select studentlist.first_name, studentlist.last_name from membership "
+              "inner join studentlist on membership.student_id = studentlist.student_id "
+              "inner join classinfo on membership.class_id = classinfo.class_id "
+              f"where classinfo.class_name = '{class_name}'")
+    print(f'this is the query: [{roster}]')
+    cursor.execute(roster)
+    result = cursor.fetchall()  
+    print(f'results: {result}')
+    cursor.close()
+    return result
 
 
 if __name__== "__main__":
