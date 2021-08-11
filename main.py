@@ -355,7 +355,7 @@ async def new_class(new_group:Group):
         print(f"looping through class {i} of total {num_classes}")
         
         class_id = random.randint(1, 999999)
-        new_class = f"insert into classinfo(class_name,class_grade,class_subject,class_size,class_id) values('{class_name}','{class_grade}','{class_subject}','{class_size}','{class_id}')"
+        new_class = f"insert into classinfo(class_name,class_grade,class_subject,class_size,class_id) values('{class_name} - {i + 1} of {num_classes}','{class_grade}','{class_subject}','{class_size}','{class_id}')"
         cursor.execute(new_class)
         print(f'this is my class id: {class_id}')
         
