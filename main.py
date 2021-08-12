@@ -19,11 +19,8 @@ AVAILABLE_SUBJECTS_9 = [
     "English",
     "Foreign Language",
     "Performing Arts",
-    "Visual Arts",
     "Physical Education",
-    "CSIT",
-    "FACS",
-    "AP"
+    "FACS"
     
 ]
 AVAILABLE_SUBJECTS_10 = [
@@ -33,7 +30,6 @@ AVAILABLE_SUBJECTS_10 = [
     "English",
     "Foreign Language",
     "Performing Arts",
-    "Visual Arts",
     "Physical Education",
     "CSIT",
     "FACS",
@@ -190,7 +186,7 @@ async def delete_student_by_id(student_id: int) -> str:
 class Newstudent(BaseModel):
     first_name: str
     last_name: str
-    student_id: int
+    student_id: int = None
     student_grade: int
 
 
@@ -200,13 +196,14 @@ async def new_student(student:Newstudent):
     cursor = connection.cursor()
     first_name = student.first_name
     last_name = student.last_name
-    student_id = student.student_id
+    student_id = random.randint(1, 999999)
     student_grade = student.student_grade
     add_new = f"insert into studentlist(first_name,last_name,student_id,student_grade) values('{first_name}','{last_name}','{student_id}','{student_grade}')"
     validate_grade(student_grade)
     cursor.execute(add_new)
     connection.commit()
     cursor.close()
+    student.student_id = student_id
     return student
 
 #update student by id
@@ -279,9 +276,12 @@ async def get_class_by_grade(class_grade):
     return result
 
 #delete class by id
-@app.delete("/class/delete/id/{class_id}")
+@app.delete("/class/{class_id}")
 async def delete_class_by_id(class_id):
     cursor = connection.cursor()
+    delete_membership = f"delete from membership where class_id = '{class_id}'"
+    cursor.execute(delete_membership)
+    connection.commit()
     delete_class = f"delete from classinfo where class_id = '{class_id}'"
     cursor.execute(delete_class)
     connection.commit()
