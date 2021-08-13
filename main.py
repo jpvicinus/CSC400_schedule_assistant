@@ -173,7 +173,7 @@ async def get_student_last_name(last_name: str):
     return result
 
 # delete user by id 
-@app.delete("/students/delete/{student_id}")
+@app.delete("/students/{student_id}")
 async def delete_student_by_id(student_id: int) -> str:
     cursor = connection.cursor()
     delete_student = f"delete from studentlist where student_id = '{student_id}'"
