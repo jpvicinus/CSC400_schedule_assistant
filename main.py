@@ -65,6 +65,8 @@ AVAILABLE_SUBJECTS_12 = [
     
 ]
 
+
+
 def validate_subject(grade: int, subject: str):
     if grade == 9:
         if subject not in AVAILABLE_SUBJECTS_9:
@@ -85,6 +87,7 @@ def validate_subject(grade: int, subject: str):
 def validate_grade(grade: int):
     if grade < 9 or grade > 12:
         raise HTTPException(status_code=400, detail=f"Grade {grade} must be between 9 and 12")
+
 
 
 def get_student_count(student_grade:int):
@@ -147,7 +150,6 @@ async def get_students():
     get_students = "select * from studentlist;"
     cursor.execute(get_students)
     result = cursor.fetchall()  
-    # put users into models using pydantic 
     cursor.close()
     return  (result)
 
@@ -176,7 +178,9 @@ async def get_student_last_name(last_name: str):
 @app.delete("/students/{student_id}")
 async def delete_student_by_id(student_id: int) -> str:
     cursor = connection.cursor()
+    delete_mem = f"delete from membership where student_id = '{student_id}'"
     delete_student = f"delete from studentlist where student_id = '{student_id}'"
+    cursor.execute(delete_mem)
     cursor.execute(delete_student)
     connection.commit()
     cursor.close()
@@ -198,7 +202,7 @@ async def new_student(student:Newstudent):
     last_name = student.last_name
     student_id = random.randint(1, 999999)
     student_grade = student.student_grade
-    add_new = f"insert into studentlist(first_name,last_name,student_id,student_grade) values('{first_name}','{last_name}','{student_id}','{student_grade}')"
+    add_new = f"insert into studentlist(first_name,last_name,student_id,student_grade) values('{first_name}','{last_name}',{student_id},{student_grade})"
     validate_grade(student_grade)
     cursor.execute(add_new)
     connection.commit()
@@ -239,6 +243,17 @@ async def get_class():  # return a list of all classes
     cursor = connection.cursor()
     # go to database and get classes 
     get_classes = "select * from classinfo"
+    cursor.execute(get_classes)
+    result = cursor.fetchall()  
+    # put classes into models using pydantic 
+    cursor.close()
+    return  (result)
+
+@app.get("/class/{class_section}")
+async def get_class():  # return a list of all classes
+    cursor = connection.cursor()
+    # go to database and get classes 
+    get_classes = "select * from classinfo where class_section = {class_section}"
     cursor.execute(get_classes)
     result = cursor.fetchall()  
     # put classes into models using pydantic 
@@ -289,14 +304,16 @@ async def delete_class_by_id(class_id):
     return "done"
 
 
-#class for new and update clas
+#class for new and update class
 class Group(BaseModel):
     class_name: str
     class_grade: int
     class_subject: str
     class_size: int
-    #class_id: int
+    # class_id: int
     max_students: int
+    
+    class_section: int
 
 
 #update class by id
@@ -307,8 +324,9 @@ async def update_class(class_id: int, updatec: Group):
     class_grade = updatec.class_grade
     class_subject = updatec.class_subject
     class_size = updatec.class_size
-    class_id = updatec.class_id
-    updateclass = f"update classinfo set class_name ='{class_name}' , class_grade = {class_grade} , class_subject = '{class_subject}' , class_size = {class_size},class_id = {class_id} where class_id={class_id}"
+    # class_id = updatec.class_id
+    class_section = updatec.class_section
+    updateclass = f"update classinfo set class_name ='{class_name}' , class_grade = {class_grade} , class_subject = '{class_subject}' , class_size = {class_size},class_id = {class_id} where class_id={class_id},class_section = {class_section}"
     validate_grade(class_grade)
     validate_subject(class_grade,class_subject)
     cursor.execute(updateclass)
@@ -337,16 +355,18 @@ async def new_class(new_group:Group):
     print(f"max students allowed in {class_name} is {max_students}")
     print(f"number of students in {class_name} is {class_size}")
     
-
     if class_size < max_students:
         num_classes = math.ceil(max_students / class_size)
         print(f"Number of classes needed for {class_name} is: {num_classes}")
     else:
         raise HTTPException(status_code=400, detail=f"Class size {class_size} must be greater than max students {max_students}")
 
-    all_students_query = (f"select * from studentlist where student_grade = {class_grade}")
-    cursor.execute(all_students_query)
-    all_students = cursor.fetchall()
+    print(f'class grade: {class_grade}')
+    check_grade = class_grade - 1
+    print(f'check grade: {check_grade}')
+    history_check_q = f"select * from studenthistory where class_grade = {check_grade} and class_subject = '{class_subject}'"
+    cursor.execute(history_check_q)
+    all_history = cursor.fetchall()
     
     desired_class_size = math.ceil(max_students / num_classes)
     total_created_memberships = 0
@@ -355,7 +375,8 @@ async def new_class(new_group:Group):
         print(f"looping through class {i} of total {num_classes}")
         
         class_id = random.randint(1, 999999)
-        new_class = f"insert into classinfo(class_name,class_grade,class_subject,class_size,class_id) values('{class_name} - {i + 1} of {num_classes}','{class_grade}','{class_subject}','{class_size}','{class_id}')"
+        new_class = f"insert into classinfo(class_name,class_grade,class_subject,class_size,class_id,class_section) values('{class_name}','{class_grade}','{class_subject}','{class_size}','{class_id}','{i + 1}')"
+        
         cursor.execute(new_class)
         print(f'this is my class id: {class_id}')
         
@@ -366,35 +387,38 @@ async def new_class(new_group:Group):
                 print(f'finished creating {total_created_memberships} students')
                 break 
             
-            random_student = random.choice(all_students)
+            
+            
+            print(all_history)
+            print(len(all_history))
+            
+            random_student = random.choice(all_history)
             print(f'here is my randomly selected student {random_student}')
-            all_students.remove(random_student)
-            print(f'updated list size after removing randomly selected student: {len(all_students)}')
+            all_history.remove(random_student)
+            print(f'updated list size after removing randomly selected student: {len(all_history)}')
+            
+            
             
             membership_id = random.randint(0, 999999)
-            student_id = random_student[2]
-            new_membership_query = f"insert into membership(id, student_id, class_id) values({membership_id}, {student_id}, {class_id})"
+            student_id = random_student[0]
+            new_membership_query = f"insert into membership(id, student_id, class_id) values('{membership_id}', '{student_id}', '{class_id}')"
             cursor.execute(new_membership_query)
             total_created_memberships += 1
 
-    #commit to create
-    connection.commit()
-   
+    connection.commit()   
     cursor.close()
     return new_group
+
   
-
-
-
-#display name of students in class given class name
-@app.get("/memberships/{class_name}")
-async def get_mem(class_name: str):   
+#display name of students in class given class id
+@app.get("/memberships/{class_id}")
+async def get_mem(class_id: str):   
     cursor = connection.cursor()
-    print(f'this is my classname : {class_name}')
-    roster = ("select studentlist.first_name, studentlist.last_name from membership "
+    print(f'this is my classname : {class_id}')
+    roster = ("select studentlist.first_name, studentlist.last_name,studentlist.student_id from membership "
               "inner join studentlist on membership.student_id = studentlist.student_id "
-              "inner join classinfo on membership.class_id = classinfo.class_id "
-              f"where classinfo.class_name = '{class_name}'")
+              "inner join classinfo on membership.class_id = classinfo.class_id  "
+              f"where classinfo.class_id = '{class_id}'")
     print(f'this is the query: [{roster}]')
     cursor.execute(roster)
     result = cursor.fetchall()  
@@ -402,6 +426,58 @@ async def get_mem(class_name: str):
     cursor.close()
     return result
 
+
+#display list of classes given student ID
+@app.get("/membership/schedule/{student_id}")
+async def get_sched(student_id):   
+    cursor = connection.cursor()
+    print(f'ths is my student id: {student_id}')
+    schedule = ("select classinfo.class_name from membership "
+            "inner join classinfo on membership.class_id = classinfo.class_id "
+            "inner join studentlist on membership.student_id = studentlist.student_id "
+            f"where studentlist.student_id ={student_id} ")
+    print(f"this is the query:[{schedule}]")
+    cursor.execute(schedule)
+    resultsched = cursor.fetchall()  
+    print(f'results: {resultsched}')
+    cursor.close()
+    return resultsched
+
+
+# get student history by id 
+@app.get("/history/{student_id}")
+async def student_history_by_id(student_id):
+    cursor = connection.cursor()
+    history_by_id = f"select * from studenthistory where student_id = '{student_id}'"
+    cursor.execute(history_by_id)
+    hresult = cursor.fetchall()
+    cursor.close()
+    print(hresult)
+    return hresult
+
+#add new class to student history
+class Group(BaseModel):
+    student_id: int
+    class_name: str
+    class_id: int
+    class_subject: str
+    class_grade: int
+   
+
+
+#add new student history
+@app.post("/newhistory")
+async def add_history(ahistory: Group):
+    cursor = connection.cursor()
+    student_id = ahistory.student_id
+    class_name = ahistory.class_name
+    class_id = ahistory.class_id
+    class_subject = ahistory.class_subject
+    class_grade = ahistory.class_grade
+    addhis = f"insert into studenthistory(student_id,class_name,class_id,class_subject,class_grade) values('{student_id}','{class_name}','{class_id}','{class_subject}','{class_grade}')"
+    cursor.execute(addhis)
+    cursor.close()
+    return ahistory
 
 if __name__== "__main__":
     uvicorn.run("main:app",host='0.0.0.0', port=8000, reload=True, debug=True, workers=1)
